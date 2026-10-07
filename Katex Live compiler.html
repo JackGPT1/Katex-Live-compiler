@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>KaTeX Live Compiler</title>
+  
+  <!-- 1. 引入 KaTeX CSS 與 JS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    header {
+      background: #24292e;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+    }
+    .header-title {
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    /* 頂部正中央互換按鈕 */
+    .swap-btn {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0366d6;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .swap-btn:hover {
+      background: #0255b3;
+      transform: translateX(-50%) scale(1.03);
+    }
+    .swap-btn:active {
+      transform: translateX(-50%) scale(0.97);
+    }
+
+    .container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    /* 反轉左右排列的 class */
+    .container.swapped {
+      flex-direction: row-reverse;
+    }
+
+    .editor-section {
+      width: 50%;
+      min-width: 150px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      background: #f8f9fa;
+    }
+    .resizer {
+      width: 8px;
+      background: #e1e4e8;
+      cursor: col-resize;
+      transition: background 0.2s;
+      z-index: 10;
+    }
+    .resizer:hover, .resizer.dragging {
+      background: #0366d6;
+    }
+    .preview-section {
+      flex: 1;
+      min-width: 150px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #f1f3f5;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid #dbe4ff;
+    }
+    .zoom-btn {
+      background: white;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      color: #333;
+      transition: all 0.15s ease;
+    }
+    .zoom-btn:hover {
+      background: #0366d6;
+      color: white;
+      border-color: #0366d6;
+    }
+    .zoom-level {
+      font-size: 13px;
+      font-weight: 600;
+      color: #495057;
+      min-width: 45px;
+      text-align: center;
+    }
+
+    textarea {
+      width: 100%;
+      flex: 1;
+      padding: 12px;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      resize: none;
+      outline: none;
+      user-select: text;
+    }
+    textarea:focus {
+      border-color: #0366d6;
+    }
+    
+    .preview-container {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid #f0f0f0;
+      border-radius: 6px;
+      padding: 16px;
+    }
+    #preview {
+      display: inline-block;
+      transform-origin: top left;
+      transition: transform 0.15s ease-out;
+      user-select: text;
+    }
+
+    .error {
+      color: #cb2431;
+      background: #ffeef0;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    label {
+      font-weight: 600;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-title">KaTeX Live Compiler</div>
+    <!-- 1. 正上方中央互換按鈕 -->
+    <button class="swap-btn" id="swapBtn" title="Swap Left and Right Panels">
+      ⇄ 互換左右位置
+    </button>
+  </header>
+
+  <div class="container" id="container">
+    <!-- 左邊：輸入區域 -->
+    <div class="editor-section" id="editorSection">
+      <label for="input">KaTeX Code Input:</label>
+      <textarea id="input" placeholder="Enter KaTeX code here..."></textarea>
+    </div>
+
+    <!-- 中間拖拽 Bar -->
+    <div class="resizer" id="resizer"></div>
+
+    <!-- 右邊：即時編譯與縮放區域 -->
+    <div class="preview-section" id="previewSection">
+      <div class="preview-header">
+        <label>Live Preview:</label>
+        
+        <!-- 縮放控制按鈕組 -->
+        <div class="zoom-controls">
+          <button class="zoom-btn" id="zoomOutBtn" title="Zoom Out">－</button>
+          <span class="zoom-level" id="zoomLevel">100%</span>
+          <button class="zoom-btn" id="zoomInBtn" title="Zoom In">＋</button>
+          <button class="zoom-btn" id="zoomResetBtn" title="Reset Zoom">Reset</button>
+        </div>
+      </div>
+
+      <div class="preview-container">
+        <div id="preview"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const input = document.getElementById("input");
+      const preview = document.getElementById("preview");
+      const resizer = document.getElementById("resizer");
+      const editorSection = document.getElementById("editorSection");
+      const container = document.getElementById("container");
+      const swapBtn = document.getElementById("swapBtn");
+
+      const zoomInBtn = document.getElementById("zoomInBtn");
+      const zoomOutBtn = document.getElementById("zoomOutBtn");
+      const zoomResetBtn = document.getElementById("zoomResetBtn");
+      const zoomLevel = document.getElementById("zoomLevel");
+
+      // 預設範例
+      input.value = `\\textbf{Cross\\ Attention}\\n\\begin{bmatrix}\\mathbf{Q}^{cr} \\to \\text{Decoder ask} \\\\\\downarrow \\\\\\mathbf{Q}^{cr}(\\mathbf{K}^{cr})^T \\to \\underbrace{\\text{Decoder find relevant inform.}}_{\\text{in Encoder}} \\\\\\downarrow \\\\\\text{softmax}(\\cdot)\\mathbf{V}^{cr} \\to \\text{Retrieve useful inform.}\\end{bmatrix}`;
+
+      // 1. KaTeX 編譯渲染函數
+      function render() {
+        const latex = input.value;
+        try {
+          katex.render(latex, preview, {
+            displayMode: true,
+            throwOnError: false,
+            errorColor: "#cb2431"
+          });
+        } catch (e) {
+          preview.innerHTML = `<div class="error">${e.message}</div>`;
+        }
+      }
+
+      input.addEventListener("input", render);
+      render();
+
+      // 2. 互換左右區域邏輯
+      let isSwapped = false;
+      swapBtn.addEventListener("click", () => {
+        isSwapped = !isSwapped;
+        container.classList.toggle("swapped", isSwapped);
+      });
+
+      // 3. 中間拖拽 Resizer 邏輯 (支援反轉後的座標計算)
+      let isDragging = false;
+
+      resizer.addEventListener("mousedown", () => {
+        isDragging = true;
+        resizer.classList.add("dragging");
+        document.body.style.cursor = "col-resize";
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+
+        const containerRect = container.getBoundingClientRect();
+        let pointerX = e.clientX - containerRect.left;
+
+        // 如果處於 Swap 狀態，計算相對右側距離
+        if (isSwapped) {
+          pointerX = containerRect.width - pointerX;
+        }
+
+        const minWidth = 150;
+        const maxWidth = containerRect.width - minWidth;
+
+        if (pointerX < minWidth) pointerX = minWidth;
+        if (pointerX > maxWidth) pointerX = maxWidth;
+
+        const leftPercentage = (pointerX / containerRect.width) * 100;
+        editorSection.style.width = `${leftPercentage}%`;
+      });
+
+      document.addEventListener("mouseup", () => {
+        if (isDragging) {
+          isDragging = false;
+          resizer.classList.remove("dragging");
+          document.body.style.cursor = "default";
+        }
+      });
+
+      // 4. 縮放 (Zooming) 邏輯
+      let currentScale = 1.0;
+      const step = 0.1;
+      const minScale = 0.5;
+      const maxScale = 3.0;
+
+      function updateZoom(newScale) {
+        currentScale = Math.min(Math.max(newScale, minScale), maxScale);
+        preview.style.transform = `scale(${currentScale})`;
+        zoomLevel.textContent = `${Math.round(currentScale * 100)}%`;
+      }
+
+      zoomInBtn.addEventListener("click", () => updateZoom(currentScale + step));
+      zoomOutBtn.addEventListener("click", () => updateZoom(currentScale - step));
+      zoomResetBtn.addEventListener("click", () => updateZoom(1.0));
+    });
+  </script>
+</body>
+</html>
