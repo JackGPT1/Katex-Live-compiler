@@ -80,6 +80,30 @@
       flex-direction: column;
       background: #f8f9fa;
     }
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    /* 清除按鈕樣式 */
+    .clear-btn {
+      background: #fff0f0;
+      color: #d73a49;
+      border: 1px solid #ffc1c7;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .clear-btn:hover {
+      background: #d73a49;
+      color: white;
+      border-color: #d73a49;
+    }
+
     .resizer {
       width: 8px;
       background: #e1e4e8;
@@ -109,9 +133,9 @@
     .zoom-controls {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       background: #f1f3f5;
-      padding: 4px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
       border: 1px solid #dbe4ff;
     }
@@ -137,6 +161,12 @@
       color: #495057;
       min-width: 45px;
       text-align: center;
+    }
+    /* 縮放滑桿樣式 */
+    .zoom-slider {
+      width: 90px;
+      cursor: pointer;
+      accent-color: #0366d6;
     }
 
     textarea {
@@ -187,7 +217,7 @@
 
   <header>
     <div class="header-title">KaTeX Live Compiler</div>
-    <!-- 1. 正上方中央互換按鈕 -->
+    <!-- 頂部正中央互換按鈕 -->
     <button class="swap-btn" id="swapBtn" title="Swap Left and Right Panels">
       ⇄ 互換左右位置
     </button>
@@ -196,8 +226,11 @@
   <div class="container" id="container">
     <!-- 左邊：輸入區域 -->
     <div class="editor-section" id="editorSection">
-      <label for="input">KaTeX Code Input:</label>
-      <textarea id="input" placeholder="Enter KaTeX code here..."></textarea>
+      <div class="editor-header">
+        <label for="input">KaTeX Code Input:</label>
+        <button class="clear-btn" id="clearBtn" title="Clear All Input">🗑 一鍵清除</button>
+      </div>
+      <textarea id="input" placeholder="Please input KaTeX code here..."></textarea>
     </div>
 
     <!-- 中間拖拽 Bar -->
@@ -208,11 +241,12 @@
       <div class="preview-header">
         <label>Live Preview:</label>
         
-        <!-- 縮放控制按鈕組 -->
+        <!-- 縮放控制按鈕與滑桿組 -->
         <div class="zoom-controls">
           <button class="zoom-btn" id="zoomOutBtn" title="Zoom Out">－</button>
-          <span class="zoom-level" id="zoomLevel">100%</span>
+          <input type="range" id="zoomSlider" class="zoom-slider" min="50" max="300" step="5" value="100" title="Zoom Level">
           <button class="zoom-btn" id="zoomInBtn" title="Zoom In">＋</button>
+          <span class="zoom-level" id="zoomLevel">100%</span>
           <button class="zoom-btn" id="zoomResetBtn" title="Reset Zoom">Reset</button>
         </div>
       </div>
@@ -231,18 +265,21 @@
       const editorSection = document.getElementById("editorSection");
       const container = document.getElementById("container");
       const swapBtn = document.getElementById("swapBtn");
+      const clearBtn = document.getElementById("clearBtn");
 
       const zoomInBtn = document.getElementById("zoomInBtn");
       const zoomOutBtn = document.getElementById("zoomOutBtn");
       const zoomResetBtn = document.getElementById("zoomResetBtn");
       const zoomLevel = document.getElementById("zoomLevel");
-
-      // 預設範例
-      input.value = `\\textbf{Cross\\ Attention}\\n\\begin{bmatrix}\\mathbf{Q}^{cr} \\to \\text{Decoder ask} \\\\\\downarrow \\\\\\mathbf{Q}^{cr}(\\mathbf{K}^{cr})^T \\to \\underbrace{\\text{Decoder find relevant inform.}}_{\\text{in Encoder}} \\\\\\downarrow \\\\\\text{softmax}(\\cdot)\\mathbf{V}^{cr} \\to \\text{Retrieve useful inform.}\\end{bmatrix}`;
+      const zoomSlider = document.getElementById("zoomSlider");
 
       // 1. KaTeX 編譯渲染函數
       function render() {
         const latex = input.value;
+        if (!latex.trim()) {
+          preview.innerHTML = "";
+          return;
+        }
         try {
           katex.render(latex, preview, {
             displayMode: true,
@@ -257,14 +294,21 @@
       input.addEventListener("input", render);
       render();
 
-      // 2. 互換左右區域邏輯
+      // 2. 一鍵清除功能
+      clearBtn.addEventListener("click", () => {
+        input.value = "";
+        render();
+        input.focus();
+      });
+
+      // 3. 互換左右區域邏輯
       let isSwapped = false;
       swapBtn.addEventListener("click", () => {
         isSwapped = !isSwapped;
         container.classList.toggle("swapped", isSwapped);
       });
 
-      // 3. 中間拖拽 Resizer 邏輯 (支援反轉後的座標計算)
+      // 4. 中間拖拽 Resizer 邏輯
       let isDragging = false;
 
       resizer.addEventListener("mousedown", () => {
@@ -279,7 +323,6 @@
         const containerRect = container.getBoundingClientRect();
         let pointerX = e.clientX - containerRect.left;
 
-        // 如果處於 Swap 狀態，計算相對右側距離
         if (isSwapped) {
           pointerX = containerRect.width - pointerX;
         }
@@ -302,7 +345,7 @@
         }
       });
 
-      // 4. 縮放 (Zooming) 邏輯
+      // 5. 縮放 (Zooming) 邏輯（按鈕 + 滑桿同步）
       let currentScale = 1.0;
       const step = 0.1;
       const minScale = 0.5;
@@ -311,12 +354,22 @@
       function updateZoom(newScale) {
         currentScale = Math.min(Math.max(newScale, minScale), maxScale);
         preview.style.transform = `scale(${currentScale})`;
-        zoomLevel.textContent = `${Math.round(currentScale * 100)}%`;
+        
+        const percentage = Math.round(currentScale * 100);
+        zoomLevel.textContent = `${percentage}%`;
+        zoomSlider.value = percentage;
       }
 
+      // 按鈕點擊事件
       zoomInBtn.addEventListener("click", () => updateZoom(currentScale + step));
       zoomOutBtn.addEventListener("click", () => updateZoom(currentScale - step));
       zoomResetBtn.addEventListener("click", () => updateZoom(1.0));
+
+      // 滑桿拖曳事件
+      zoomSlider.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value) / 100;
+        updateZoom(val);
+      });
     });
   </script>
 </body>
