@@ -2,260 +2,119 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>KaTeX Live Compiler</title>
-  
-  <!-- 1. 引入 KaTeX CSS 與 JS -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>KaTeX 即時編譯器</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #24292e; }
+    body { height: 100vh; min-height: 420px; display: flex; flex-direction: column; overflow: hidden; }
+    button, select, textarea, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid #0366d6; outline-offset: 2px; }
+    header { flex: 0 0 auto; min-height: 56px; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px; background: #24292e; color: #fff; position: relative; }
+    .header-title { font-weight: 700; font-size: 1.08rem; white-space: nowrap; }
+    .swap-btn { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 7px 13px; color: #fff; background: #0366d6; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; transition: background .2s, transform .2s; box-shadow: 0 2px 4px #0003; white-space: nowrap; }
+    .swap-btn:hover { background: #0255b3; transform: translateX(-50%) scale(1.03); }
+    .language-switch { display: flex; align-items: center; gap: 8px; margin-left: auto; position: relative; z-index: 2; font-size: 13px; white-space: nowrap; }
+    .language-switch select { max-width: 150px; padding: 6px 8px; border: 1px solid #57606a; border-radius: 6px; background: #fff; color: #24292e; cursor: pointer; }
+    .container { flex: 1; min-height: 0; display: flex; overflow: hidden; position: relative; }
+    .container.swapped { flex-direction: row-reverse; }
+    .editor-section { width: 50%; min-width: 150px; min-height: 0; padding: 20px; display: flex; flex-direction: column; background: #f8f9fa; }
+    .editor-header, .preview-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; min-height: 30px; }
+    label { font-weight: 600; color: #444; }
+    .editor-actions { display: flex; align-items: center; gap: 8px; }
+    .editor-actions button { white-space: nowrap; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; transition: all .15s ease; }
+    .copy-btn { background: #eef6ff; color: #0366d6; border: 1px solid #b6d7ff; }
+    .copy-btn:hover { background: #0366d6; color: white; border-color: #0366d6; }
+    .clear-btn { background: #fff0f0; color: #d73a49; border: 1px solid #ffc1c7; }
+    .clear-btn:hover { background: #d73a49; color: white; border-color: #d73a49; }
+    textarea { width: 100%; flex: 1; min-height: 0; padding: 12px; font-family: "Fira Code", Consolas, "Courier New", monospace; font-size: 15px; line-height: 1.55; border: 1px solid #ccc; border-radius: 6px; resize: none; outline: none; user-select: text; background: #fff; }
+    textarea:focus { border-color: #0366d6; }
+    .resizer { flex: 0 0 8px; background: #e1e4e8; cursor: col-resize; transition: background .2s; z-index: 10; touch-action: none; }
+    .resizer:hover, .resizer.dragging { background: #0366d6; }
+    .preview-section { flex: 1; min-width: 150px; min-height: 0; padding: 20px; display: flex; flex-direction: column; background: #fff; overflow: hidden; }
+    .zoom-controls { display: flex; align-items: center; gap: 8px; background: #f1f3f5; padding: 4px 10px; border-radius: 6px; border: 1px solid #dbe4ff; }
+    .zoom-btn { background: #fff; border: 1px solid #ced4da; border-radius: 4px; padding: 2px 8px; font-size: 13px; font-weight: 700; color: #333; transition: all .15s ease; }
+    .zoom-btn:hover { background: #0366d6; color: #fff; border-color: #0366d6; }
+    .zoom-level { font-size: 13px; font-weight: 600; color: #495057; min-width: 45px; text-align: center; font-variant-numeric: tabular-nums; }
+    .zoom-slider { width: 90px; cursor: pointer; accent-color: #0366d6; }
+    .preview-container { flex: 1; min-height: 0; overflow: auto; border: 1px solid #f0f0f0; border-radius: 6px; padding: 16px; user-select: text; }
+    #preview { display: inline-block; transform-origin: top left; transition: transform .15s ease-out; user-select: text; }
+    #preview:empty::after { content: attr(data-empty-message); color: #868e96; font-size: 14px; }
+    .error { color: #cb2431; background: #ffeef0; padding: 10px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; }
+    @media (max-width: 760px) {
+      header { padding: 10px 12px; gap: 8px; }
+      .header-title { font-size: .92rem; }
+      .swap-btn { position: static; transform: none; margin-left: auto; margin-right: auto; padding: 6px 8px; font-size: 12px; }
+      .swap-btn:hover { transform: none; }
+      .language-switch { gap: 5px; }
+      .language-switch select { max-width: 112px; padding: 6px 4px; }
+      .editor-section, .preview-section { padding: 12px; }
+      .editor-header, .preview-header { align-items: flex-start; }
+      .editor-header { flex-wrap: wrap; }
+      .editor-actions { gap: 4px; }
+      .editor-actions button { padding: 4px 6px; font-size: 11px; }
+      .zoom-controls { gap: 4px; padding: 4px; flex-wrap: wrap; justify-content: flex-end; }
+      .zoom-slider { width: 60px; }
     }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      user-select: none;
-    }
-    header {
-      background: #24292e;
-      color: white;
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: relative;
-    }
-    .header-title {
-      font-weight: bold;
-      font-size: 1.1rem;
-    }
-    /* 頂部正中央互換按鈕 */
-    .swap-btn {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #0366d6;
-      color: white;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    .swap-btn:hover {
-      background: #0255b3;
-      transform: translateX(-50%) scale(1.03);
-    }
-    .swap-btn:active {
-      transform: translateX(-50%) scale(0.97);
-    }
-
-    .container {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-      position: relative;
-    }
-    /* 反轉左右排列的 class */
-    .container.swapped {
-      flex-direction: row-reverse;
-    }
-
-    .editor-section {
-      width: 50%;
-      min-width: 150px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      background: #f8f9fa;
-    }
-    .editor-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    /* 清除按鈕樣式 */
-    .clear-btn {
-      background: #fff0f0;
-      color: #d73a49;
-      border: 1px solid #ffc1c7;
-      padding: 3px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .clear-btn:hover {
-      background: #d73a49;
-      color: white;
-      border-color: #d73a49;
-    }
-
-    .resizer {
-      width: 8px;
-      background: #e1e4e8;
-      cursor: col-resize;
-      transition: background 0.2s;
-      z-index: 10;
-    }
-    .resizer:hover, .resizer.dragging {
-      background: #0366d6;
-    }
-    .preview-section {
-      flex: 1;
-      min-width: 150px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      background: #ffffff;
-      overflow: hidden;
-    }
-    
-    .preview-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .zoom-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #f1f3f5;
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid #dbe4ff;
-    }
-    .zoom-btn {
-      background: white;
-      border: 1px solid #ced4da;
-      border-radius: 4px;
-      padding: 2px 8px;
-      font-size: 13px;
-      font-weight: bold;
-      cursor: pointer;
-      color: #333;
-      transition: all 0.15s ease;
-    }
-    .zoom-btn:hover {
-      background: #0366d6;
-      color: white;
-      border-color: #0366d6;
-    }
-    .zoom-level {
-      font-size: 13px;
-      font-weight: 600;
-      color: #495057;
-      min-width: 45px;
-      text-align: center;
-    }
-    /* 縮放滑桿樣式 */
-    .zoom-slider {
-      width: 90px;
-      cursor: pointer;
-      accent-color: #0366d6;
-    }
-
-    textarea {
-      width: 100%;
-      flex: 1;
-      padding: 12px;
-      font-family: 'Fira Code', 'Consolas', monospace;
-      font-size: 15px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      resize: none;
-      outline: none;
-      user-select: text;
-    }
-    textarea:focus {
-      border-color: #0366d6;
-    }
-    
-    .preview-container {
-      flex: 1;
-      overflow: auto;
-      border: 1px solid #f0f0f0;
-      border-radius: 6px;
-      padding: 16px;
-    }
-    #preview {
-      display: inline-block;
-      transform-origin: top left;
-      transition: transform 0.15s ease-out;
-      user-select: text;
-    }
-
-    .error {
-      color: #cb2431;
-      background: #ffeef0;
-      padding: 10px;
-      border-radius: 4px;
-      font-family: monospace;
-      white-space: pre-wrap;
-    }
-    label {
-      font-weight: 600;
-      color: #444;
+    @media (max-width: 520px) {
+      .header-title { max-width: 92px; white-space: normal; line-height: 1.15; }
+      .language-switch > span { display: none; }
+      .language-switch select { max-width: 100px; }
+      .editor-section, .preview-section { min-width: 135px; padding: 8px; }
+      .resizer { flex-basis: 6px; }
+      .zoom-level { min-width: 36px; }
+      .zoom-slider { width: 46px; }
     }
   </style>
 </head>
 <body>
-
   <header>
     <div class="header-title">KaTeX Live Compiler</div>
-    <!-- 頂部正中央互換按鈕 -->
-    <button class="swap-btn" id="swapBtn" title="Swap Left and Right Panels">
-      ⇄ 互換左右位置
-    </button>
+    <button class="swap-btn" id="swapBtn" data-i18n="swapPanels" data-i18n-title="swapTitle" title="互換左右面板">⇄ 互換左右位置</button>
+    <label class="language-switch" for="languageSelect">
+      <span data-i18n="languageLabel">語言</span>
+      <select id="languageSelect" aria-label="介面語言">
+        <option value="zh-TW">繁體中文</option>
+        <option value="zh-CN">简体中文</option>
+        <option value="en">English</option>
+      </select>
+    </label>
   </header>
 
-  <div class="container" id="container">
-    <!-- 左邊：輸入區域 -->
-    <div class="editor-section" id="editorSection">
+  <main class="container" id="container">
+    <section class="editor-section" id="editorSection">
       <div class="editor-header">
-        <label for="input">KaTeX Code Input:</label>
-        <button class="clear-btn" id="clearBtn" title="Clear All Input">🗑 一鍵清除</button>
-      </div>
-      <textarea id="input" placeholder="Please input KaTeX code here..."></textarea>
-    </div>
-
-    <!-- 中間拖拽 Bar -->
-    <div class="resizer" id="resizer"></div>
-
-    <!-- 右邊：即時編譯與縮放區域 -->
-    <div class="preview-section" id="previewSection">
-      <div class="preview-header">
-        <label>Live Preview:</label>
-        
-        <!-- 縮放控制按鈕與滑桿組 -->
-        <div class="zoom-controls">
-          <button class="zoom-btn" id="zoomOutBtn" title="Zoom Out">－</button>
-          <input type="range" id="zoomSlider" class="zoom-slider" min="50" max="300" step="5" value="100" title="Zoom Level">
-          <button class="zoom-btn" id="zoomInBtn" title="Zoom In">＋</button>
-          <span class="zoom-level" id="zoomLevel">100%</span>
-          <button class="zoom-btn" id="zoomResetBtn" title="Reset Zoom">Reset</button>
+        <label for="input" data-i18n="inputLabel">KaTeX 程式碼輸入：</label>
+        <div class="editor-actions">
+          <button class="copy-btn" id="copyBtn" data-i18n="copyButton" data-i18n-title="copyTitle" title="複製代碼">📋 複製代碼</button>
+          <button class="clear-btn" id="clearBtn" data-i18n="clearButton" data-i18n-title="clearTitle" title="清除所有輸入">🗑 一鍵清除</button>
         </div>
       </div>
+      <textarea id="input" data-i18n-placeholder="inputPlaceholder" placeholder="請在此輸入 KaTeX 程式碼……" spellcheck="false"></textarea>
+    </section>
 
-      <div class="preview-container">
-        <div id="preview"></div>
+    <div class="resizer" id="resizer" role="separator" aria-orientation="vertical" aria-label="調整左右面板寬度" tabindex="0"></div>
+
+    <section class="preview-section" id="previewSection">
+      <div class="preview-header">
+        <label data-i18n="previewLabel">即時預覽：</label>
+        <div class="zoom-controls">
+          <button class="zoom-btn" id="zoomOutBtn" data-i18n-title="zoomOutTitle" title="縮小" aria-label="縮小">－</button>
+          <input type="range" id="zoomSlider" class="zoom-slider" min="50" max="300" step="5" value="100" data-i18n-title="zoomLevelTitle" title="縮放比例" aria-label="縮放比例">
+          <button class="zoom-btn" id="zoomInBtn" data-i18n-title="zoomInTitle" title="放大" aria-label="放大">＋</button>
+          <span class="zoom-level" id="zoomLevel">100%</span>
+          <button class="zoom-btn" id="zoomResetBtn" data-i18n="zoomResetButton" data-i18n-title="zoomResetTitle" title="重設縮放">重設</button>
+        </div>
       </div>
-    </div>
-  </div>
+      <div class="preview-container" id="previewContainer">
+        <div id="preview" data-empty-message="輸入 KaTeX 程式碼後，結果會顯示在這裡。"></div>
+      </div>
+    </section>
+  </main>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
@@ -266,110 +125,238 @@
       const container = document.getElementById("container");
       const swapBtn = document.getElementById("swapBtn");
       const clearBtn = document.getElementById("clearBtn");
-
+      const copyBtn = document.getElementById("copyBtn");
+      const languageSelect = document.getElementById("languageSelect");
       const zoomInBtn = document.getElementById("zoomInBtn");
       const zoomOutBtn = document.getElementById("zoomOutBtn");
       const zoomResetBtn = document.getElementById("zoomResetBtn");
       const zoomLevel = document.getElementById("zoomLevel");
       const zoomSlider = document.getElementById("zoomSlider");
 
-      // 1. KaTeX 編譯渲染函數
+      const translations = {
+        "zh-TW": {
+          languageLabel: "語言", swapPanels: "⇄ 互換左右位置", swapTitle: "互換左右面板",
+          inputLabel: "KaTeX 程式碼輸入：", inputPlaceholder: "請在此輸入 KaTeX 程式碼……",
+          copyButton: "📋 複製代碼", copyTitle: "複製代碼", copySuccess: "✓ 已複製", copyError: "複製失敗",
+          emptyResult: "沒有可複製的代碼", clearButton: "🗑 一鍵清除", clearTitle: "清除所有輸入",
+          previewLabel: "即時預覽：", emptyPreview: "輸入 KaTeX 程式碼後，結果會顯示在這裡。",
+          zoomOutTitle: "縮小", zoomLevelTitle: "縮放比例", zoomInTitle: "放大",
+          zoomResetButton: "重設", zoomResetTitle: "重設縮放", documentTitle: "KaTeX 即時編譯器",
+          copyFailedNotice: "無法存取剪貼簿。請確認瀏覽器允許剪貼簿存取。"
+        },
+        "zh-CN": {
+          languageLabel: "语言", swapPanels: "⇄ 交换左右位置", swapTitle: "交换左右面板",
+          inputLabel: "KaTeX 代码输入：", inputPlaceholder: "请在此输入 KaTeX 代码……",
+          copyButton: "📋 拷贝代码", copyTitle: "拷贝代码", copySuccess: "✓ 已复制", copyError: "复制失败",
+          emptyResult: "没有可复制的代码", clearButton: "🗑 一键清除", clearTitle: "清除所有输入",
+          previewLabel: "即时预览：", emptyPreview: "输入 KaTeX 代码后，结果会显示在这里。",
+          zoomOutTitle: "缩小", zoomLevelTitle: "缩放比例", zoomInTitle: "放大",
+          zoomResetButton: "重设", zoomResetTitle: "重设缩放", documentTitle: "KaTeX 即时编译器",
+          copyFailedNotice: "无法访问剪贴板。请确认浏览器允许剪贴板访问。"
+        },
+        "en": {
+          languageLabel: "Language", swapPanels: "⇄ Swap Panels", swapTitle: "Swap the left and right panels",
+          inputLabel: "KaTeX Code Input:", inputPlaceholder: "Enter KaTeX code here...",
+          copyButton: "📋 Copy code", copyTitle: "Copy code", copySuccess: "✓ Copied", copyError: "Copy failed",
+          emptyResult: "There is no code to copy", clearButton: "🗑 Clear All", clearTitle: "Clear all input",
+          previewLabel: "Live Preview:", emptyPreview: "Enter KaTeX code to see the rendered result here.",
+          zoomOutTitle: "Zoom Out", zoomLevelTitle: "Zoom Level", zoomInTitle: "Zoom In",
+          zoomResetButton: "Reset", zoomResetTitle: "Reset zoom", documentTitle: "KaTeX Live Compiler",
+          copyFailedNotice: "Clipboard access failed. Check your browser's clipboard permissions."
+        }
+      };
+
+      let currentLanguage = "zh-TW";
+      let copyFeedbackTimer;
+
+      function t(key) {
+        return translations[currentLanguage][key] || translations["zh-TW"][key] || key;
+      }
+
+      function applyLanguage(language) {
+        currentLanguage = Object.prototype.hasOwnProperty.call(translations, language) ? language : "zh-TW";
+        document.documentElement.lang = currentLanguage === "zh-TW" ? "zh-Hant" : currentLanguage === "zh-CN" ? "zh-Hans" : "en";
+        document.querySelectorAll("[data-i18n]").forEach((element) => {
+          const key = element.getAttribute("data-i18n");
+          if (t(key)) element.textContent = t(key);
+        });
+        document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+          const key = element.getAttribute("data-i18n-title");
+          if (t(key)) element.title = t(key);
+        });
+        document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+          const key = element.getAttribute("data-i18n-placeholder");
+          if (t(key)) element.placeholder = t(key);
+        });
+        languageSelect.value = currentLanguage;
+        preview.dataset.emptyMessage = t("emptyPreview");
+        document.title = t("documentTitle");
+        if (copyBtn.dataset.feedbackKey) copyBtn.textContent = t(copyBtn.dataset.feedbackKey);
+      }
+
+      try {
+        const savedLanguage = localStorage.getItem("katexLiveCompilerLanguage");
+        if (savedLanguage && Object.prototype.hasOwnProperty.call(translations, savedLanguage)) currentLanguage = savedLanguage;
+      } catch (error) { /* Local storage may be unavailable for local files. */ }
+      applyLanguage(currentLanguage);
+
+      languageSelect.addEventListener("change", () => {
+        applyLanguage(languageSelect.value);
+        try { localStorage.setItem("katexLiveCompilerLanguage", currentLanguage); }
+        catch (error) { /* Language switching still works without local storage. */ }
+      });
+
       function render() {
         const latex = input.value;
         if (!latex.trim()) {
           preview.innerHTML = "";
           return;
         }
+        if (!window.katex) {
+          preview.innerHTML = "<div class=\"error\">KaTeX did not load. Please check your internet connection and reload.</div>";
+          return;
+        }
         try {
-          katex.render(latex, preview, {
-            displayMode: true,
-            throwOnError: false,
-            errorColor: "#cb2431"
-          });
-        } catch (e) {
-          preview.innerHTML = `<div class="error">${e.message}</div>`;
+          katex.render(latex, preview, { displayMode: true, throwOnError: false, errorColor: "#cb2431", trust: false });
+        } catch (error) {
+          const errorBox = document.createElement("div");
+          errorBox.className = "error";
+          errorBox.textContent = error.message;
+          preview.replaceChildren(errorBox);
         }
       }
 
       input.addEventListener("input", render);
       render();
 
-      // 2. 一鍵清除功能
       clearBtn.addEventListener("click", () => {
         input.value = "";
         render();
         input.focus();
       });
 
-      // 3. 互換左右區域邏輯
+      function showCopyFeedback(key) {
+        window.clearTimeout(copyFeedbackTimer);
+        copyBtn.dataset.feedbackKey = key;
+        copyBtn.textContent = t(key);
+        copyFeedbackTimer = window.setTimeout(() => {
+          delete copyBtn.dataset.feedbackKey;
+          copyBtn.textContent = t("copyButton");
+        }, 1800);
+      }
+
+      async function copyPlainTextFallback(text) {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+        const temporaryInput = document.createElement("textarea");
+        temporaryInput.value = text;
+        temporaryInput.setAttribute("readonly", "");
+        temporaryInput.style.position = "fixed";
+        temporaryInput.style.left = "-9999px";
+        temporaryInput.style.top = "0";
+        document.body.appendChild(temporaryInput);
+        temporaryInput.select();
+        const copied = document.execCommand("copy");
+        temporaryInput.remove();
+        if (!copied) throw new Error("The browser rejected the clipboard copy command.");
+        return true;
+      }
+
+      copyBtn.addEventListener("click", async () => {
+        const source = input.value;
+        if (!source.trim() || !preview.innerHTML.trim()) {
+          showCopyFeedback("emptyResult");
+          return;
+        }
+
+        // Rich clipboard targets receive rendered HTML; plain-text targets receive the original TeX.
+        const formulaMarkup = preview.innerHTML;
+        const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"></head><body>' + formulaMarkup + '</body></html>';
+        try {
+          if (navigator.clipboard && typeof navigator.clipboard.write === "function" && window.ClipboardItem && window.isSecureContext) {
+            const item = new ClipboardItem({
+              "text/html": new Blob([html], { type: "text/html" }),
+              "text/plain": new Blob([source], { type: "text/plain" })
+            });
+            await navigator.clipboard.write([item]);
+          } else {
+            // A local-file or older-browser fallback copies the LaTeX source as text.
+            await copyPlainTextFallback(source);
+          }
+          showCopyFeedback("copySuccess");
+        } catch (error) {
+          try {
+            await copyPlainTextFallback(source);
+            showCopyFeedback("copySuccess");
+          } catch (fallbackError) {
+            showCopyFeedback("copyError");
+            window.alert(t("copyFailedNotice"));
+          }
+        }
+      });
+
       let isSwapped = false;
       swapBtn.addEventListener("click", () => {
         isSwapped = !isSwapped;
         container.classList.toggle("swapped", isSwapped);
       });
 
-      // 4. 中間拖拽 Resizer 邏輯
       let isDragging = false;
-
-      resizer.addEventListener("mousedown", () => {
+      function startDragging(event) {
         isDragging = true;
         resizer.classList.add("dragging");
         document.body.style.cursor = "col-resize";
-      });
-
-      document.addEventListener("mousemove", (e) => {
+        if (event.pointerId !== undefined && resizer.setPointerCapture) {
+          try { resizer.setPointerCapture(event.pointerId); } catch (error) { /* Optional API. */ }
+        }
+        event.preventDefault();
+      }
+      function dragTo(clientX) {
         if (!isDragging) return;
-
-        const containerRect = container.getBoundingClientRect();
-        let pointerX = e.clientX - containerRect.left;
-
-        if (isSwapped) {
-          pointerX = containerRect.width - pointerX;
-        }
-
+        const rect = container.getBoundingClientRect();
+        let position = clientX - rect.left;
+        if (isSwapped) position = rect.width - position;
         const minWidth = 150;
-        const maxWidth = containerRect.width - minWidth;
-
-        if (pointerX < minWidth) pointerX = minWidth;
-        if (pointerX > maxWidth) pointerX = maxWidth;
-
-        const leftPercentage = (pointerX / containerRect.width) * 100;
-        editorSection.style.width = `${leftPercentage}%`;
+        position = Math.max(minWidth, Math.min(position, rect.width - minWidth - resizer.offsetWidth));
+        editorSection.style.width = `${(position / rect.width) * 100}%`;
+      }
+      function stopDragging() {
+        if (!isDragging) return;
+        isDragging = false;
+        resizer.classList.remove("dragging");
+        document.body.style.cursor = "";
+      }
+      resizer.addEventListener("pointerdown", startDragging);
+      document.addEventListener("pointermove", (event) => dragTo(event.clientX));
+      document.addEventListener("pointerup", stopDragging);
+      document.addEventListener("pointercancel", stopDragging);
+      resizer.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const rect = container.getBoundingClientRect();
+        const direction = (event.key === "ArrowRight" ? 1 : -1) * (isSwapped ? -1 : 1);
+        const width = editorSection.getBoundingClientRect().width + direction * 12;
+        editorSection.style.width = `${Math.max(150, Math.min(width, rect.width - 158)) / rect.width * 100}%`;
       });
 
-      document.addEventListener("mouseup", () => {
-        if (isDragging) {
-          isDragging = false;
-          resizer.classList.remove("dragging");
-          document.body.style.cursor = "default";
-        }
-      });
-
-      // 5. 縮放 (Zooming) 邏輯（按鈕 + 滑桿同步）
-      let currentScale = 1.0;
+      let currentScale = 1;
       const step = 0.1;
       const minScale = 0.5;
-      const maxScale = 3.0;
-
+      const maxScale = 3;
       function updateZoom(newScale) {
         currentScale = Math.min(Math.max(newScale, minScale), maxScale);
         preview.style.transform = `scale(${currentScale})`;
-        
         const percentage = Math.round(currentScale * 100);
         zoomLevel.textContent = `${percentage}%`;
-        zoomSlider.value = percentage;
+        zoomSlider.value = String(percentage);
+        zoomSlider.setAttribute("aria-valuetext", `${percentage}%`);
       }
-
-      // 按鈕點擊事件
       zoomInBtn.addEventListener("click", () => updateZoom(currentScale + step));
       zoomOutBtn.addEventListener("click", () => updateZoom(currentScale - step));
-      zoomResetBtn.addEventListener("click", () => updateZoom(1.0));
-
-      // 滑桿拖曳事件
-      zoomSlider.addEventListener("input", (e) => {
-        const val = parseFloat(e.target.value) / 100;
-        updateZoom(val);
-      });
+      zoomResetBtn.addEventListener("click", () => updateZoom(1));
+      zoomSlider.addEventListener("input", (event) => updateZoom(Number.parseFloat(event.target.value) / 100));
     });
   </script>
 </body>
